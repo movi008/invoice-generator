@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import { format, parse } from 'date-fns';
 import { processCsvData, calculateTotalsByProject, ActivityData, WorkerRate, ClientInfo, PayableTo } from '../utils/csvProcessor';
 import { generateProjectPage, generateInvoiceHeader, generateTeamSummary, generateProjectsSummary, generateCombinedInvoice } from '../utils/pdfGenerator';
-import { Plus, X, Download, FileDown, Upload } from 'lucide-react';
+import { Plus, X, Download, FileDown, Upload, LogOut, Eye, EyeOff, Users, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export function InvoiceGenerator() {
+  const { signOut } = useAuth();
   const [csvData, setCsvData] = useState<ActivityData[]>([]);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [workerRates, setWorkerRates] = useState<WorkerRate[]>([{ name: '', rate: 0 }]);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [adjustedHours, setAdjustedHours] = useState<Record<string, number>>({});
   const [adjustedAmounts, setAdjustedAmounts] = useState<Record<string, number>>({});
+  const [showActivities, setShowActivities] = useState(true);
+  const [showAmounts, setShowAmounts] = useState(true);
+  const [showTeamSummary, setShowTeamSummary] = useState(true);
   const [clientInfo, setClientInfo] = useState<ClientInfo>({
     name: '',
     company: '',
@@ -145,21 +151,26 @@ export function InvoiceGenerator() {
       selectedMonth,
       workerRates,
       adjustedAmounts,
-      startY: 110
+      startY: 110,
+      showActivities,
+      showAmounts
     });
 
-    const workerTotals = Object.entries(combinedWorkerTotals).reduce((acc, [name, data]) => {
-      acc[name] = {
-        totalHours: data.totalHours,
-        adjustedHours: adjustedHours[name] || data.totalHours
-      };
-      return acc;
-    }, {} as Record<string, { totalHours: number; adjustedHours: number }>);
+    if (showTeamSummary) {
+      const workerTotals = Object.entries(combinedWorkerTotals).reduce((acc, [name, data]) => {
+        acc[name] = {
+          totalHours: data.totalHours,
+          adjustedHours: adjustedHours[name] || data.totalHours
+        };
+        return acc;
+      }, {} as Record<string, { totalHours: number; adjustedHours: number }>);
 
-    generateTeamSummary({
-      doc,
-      workerTotals
-    });
+      generateTeamSummary({
+        doc,
+        workerTotals,
+        showAmounts
+      });
+    }
     
     doc.save(`${project.toLowerCase().replace(/\s+/g, '-')}-${format(parse(selectedMonth, 'yyyy-MM', new Date()), 'yyyy-MM')}.pdf`);
   };
@@ -184,7 +195,10 @@ export function InvoiceGenerator() {
       adjustedAmounts,
       projectsSummary,
       workerTotals,
-      workerRates
+      workerRates,
+      showActivities,
+      showAmounts,
+      showTeamSummary
     });
     
     doc.save(`combined-invoice-${format(parse(selectedMonth, 'yyyy-MM', new Date()), 'yyyy-MM')}.pdf`);
@@ -192,7 +206,25 @@ export function InvoiceGenerator() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8">Invoice Generator</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Invoice Generator</h1>
+        <div className="flex items-center space-x-4">
+          <Link
+            to="/toptal-converter"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Toptal Converter
+          </Link>
+          <button
+            onClick={signOut}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </button>
+        </div>
+      </div>
       
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="space-y-4">
@@ -270,6 +302,45 @@ export function InvoiceGenerator() {
               placeholder="Enter location"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="mb-6 bg-white p-4 rounded-lg shadow">
+        <h2 className="text-lg font-semibold mb-4">PDF Output Controls</h2>
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={() => setShowActivities(!showActivities)}
+            className={`flex items-center px-4 py-2 rounded-md ${
+              showActivities 
+                ? 'bg-blue-100 text-blue-700' 
+                : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {showActivities ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
+            {showActivities ? 'Hide Activities' : 'Show Activities'}
+          </button>
+          <button
+            onClick={() => setShowAmounts(!showAmounts)}
+            className={`flex items-center px-4 py-2 rounded-md ${
+              showAmounts 
+                ? 'bg-blue-100 text-blue-700' 
+                : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {showAmounts ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
+            {showAmounts ? 'Hide Amounts & Rates' : 'Show Amounts & Rates'}
+          </button>
+          <button
+            onClick={() => setShowTeamSummary(!showTeamSummary)}
+            className={`flex items-center px-4 py-2 rounded-md ${
+              showTeamSummary 
+                ? 'bg-blue-100 text-blue-700' 
+                : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {showTeamSummary ? <Users className="h-4 w-4 mr-2" /> : <Users className="h-4 w-4 mr-2" />}
+            {showTeamSummary ? 'Hide Team Summary' : 'Show Team Summary'}
+          </button>
         </div>
       </div>
       

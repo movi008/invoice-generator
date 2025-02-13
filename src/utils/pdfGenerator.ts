@@ -21,6 +21,8 @@ interface GenerateProjectPageOptions {
   workerRates: { name: string; rate: number; }[];
   adjustedAmounts: Record<string, number>;
   startY?: number;
+  showActivities?: boolean;
+  showAmounts?: boolean;
 }
 
 export function generateProjectPage({
@@ -30,96 +32,119 @@ export function generateProjectPage({
   selectedMonth,
   workerRates,
   adjustedAmounts,
-  startY = 20
+  startY = 20,
+  showActivities = true,
+  showAmounts = true
 }: GenerateProjectPageOptions) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
   
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setTextColor(33, 33, 33);
-  const title = `Project: ${project} - ${format(parse(selectedMonth, 'yyyy-MM', new Date()), 'MMMM yyyy')}`;
-  const textWidth = doc.getTextWidth(title); // Get text width
-  doc.text(title, (pageWidth - textWidth) / 2, startY);
+  doc.text(`Project: ${project}`, margin, startY);
+  
+  let y = startY + 8;
+  
+  if (showActivities) {
+    const colWidths = showAmounts 
+      ? [pageWidth - 120, 30, 30, 40]
+      : [pageWidth - 50, 40];
+    const headers = showAmounts 
+      ? ['Activity', 'Hours', 'Rate', 'Amount']
+      : ['Activity'];
+    
+    doc.setFillColor(51, 101, 138);
+    doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    let x = margin;
+    headers.forEach((header, i) => {
+      doc.text(header, x + 2, y + 5);
+      x += colWidths[i];
+    });
 
-  let y = startY + 8; // Reduced spacing
-  const colWidths = [pageWidth - 120, 30, 30, 40];
-  const headers = ['Activity', 'Hours', 'Rate', 'Amount'];
-  
-  doc.setFillColor(51, 101, 138);
-  doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  let x = margin;
-  headers.forEach((header, i) => {
-    doc.text(header, x + 2, y + 5);
-    x += colWidths[i];
-  });
-  
-  y += 10; // Standard spacing after header
-  doc.setTextColor(33, 33, 33);
-  
-  projectData.activities.forEach((activity, index) => {
-    if (y > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage();
-      y = 20;
-    }
-
-    if (index % 2 === 0) {
-      doc.setFillColor(247, 247, 247);
-      doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+    if (!showAmounts) {
+      const hoursColumnX = pageWidth - margin - 21; // Adjusted to match data alignment
+      doc.text('Hours', hoursColumnX, y + 5, { align: 'right' });
     }
     
-    x = margin;
-    doc.setFontSize(8);
+    y += 10;
+    doc.setTextColor(33, 33, 33);
     
-    const maxWidth = colWidths[0] - 4;
-    const splitText = doc.splitTextToSize(activity.activity, maxWidth);
-    doc.text(splitText, x + 2, y + 5);
-    x += colWidths[0];
+    projectData.activities.forEach((activity, index) => {
+      if (y > doc.internal.pageSize.getHeight() - 40) {
+        doc.addPage();
+        y = 20;
+      }
     
-    doc.text(activity.upwork_hours.toFixed(2), x + 2, y + 5);
-    x += colWidths[1];
+      if (index % 2 === 0) {
+        doc.setFillColor(247, 247, 247);
+        doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+      }
     
-    const rate = workerRates.find(w => w.name === activity.workers)?.rate || 0;
-    doc.text(`$${rate.toFixed(2)}`, x + 2, y + 5);
-    x += colWidths[2];
+      x = margin;
+      doc.setFontSize(8);
     
-    const amount = activity.upwork_hours * rate;
-    doc.text(`$${amount.toFixed(2)}`, x + 2, y + 5);
+      const maxWidth = colWidths[0] - 4;
+      const splitText = doc.splitTextToSize(activity.activity, maxWidth);
+      doc.text(splitText, x + 2, y + 5);
+      x += colWidths[0];
     
-    y += 8; // Standard row spacing
-  });
-
-  y += 0; // Small gap before totals
+      // Align hours properly when showAmounts is false
+      if (!showAmounts) {
+        doc.text(activity.upwork_hours.toFixed(2), pageWidth - margin - 30, y + 5);
+      } else {
+        doc.text(activity.upwork_hours.toFixed(2), x + 2, y + 5);
+        x += colWidths[1];
+    
+        const rate = workerRates.find(w => w.name === activity.workers)?.rate || 0;
+        doc.text(`$${rate.toFixed(2)}`, x + 2, y + 5);
+    
+        x += colWidths[2];
+        const amount = activity.upwork_hours * rate;
+        doc.text(`$${amount.toFixed(2)}`, x + 2, y + 5);
+      }
+    
+      y += 8;
+    });
+  }
+  
+  y += 5;
   doc.setFontSize(10);
   doc.setTextColor(33, 33, 33);
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F'); // Add background for totals row
-  doc.text('Project Total:', margin + 3, y + 5);
+  doc.text('Project Total:', margin, y + 5);
+  
+  // Correctly align the total hours under the "Hours" column
+  if(showAmounts) {
+    const totalHoursX = pageWidth - margin - 60;
+    doc.text(`${projectData.totalHours.toFixed(2)} hours`, totalHoursX, y + 5, { align: 'right' });
+  }
 
-  doc.text(`${projectData.totalHours.toFixed(2)} hours`, pageWidth - 120, y + 5);
+  if(!showAmounts){
+    const totalHoursX2 = pageWidth - margin - 12;
+    doc.text(`${projectData.totalHours.toFixed(2)} hours`, totalHoursX2, y + 5, { align: 'right' });
+  }
+  
+  if (showAmounts) {
+    doc.text(`$${projectData.totalAmount.toFixed(2)}`, pageWidth - margin - 10, y + 5);
 
-  // Set green color for total amount
-  doc.setTextColor(39, 174, 96);
-  doc.text(`$${projectData.totalAmount.toFixed(2)}`, pageWidth - margin - 20, y + 5);
+    const adjustedAmount = adjustedAmounts[project] || 0;
+    if (adjustedAmount > 0) {
+        y += 10;
+        doc.setTextColor(255, 0, 0);
+        doc.text('Adjusted Amount:', margin, y + 6);
+        doc.text(`-$${adjustedAmount.toFixed(2)}`, pageWidth - margin - 10, y + 6);
 
-  const adjustedAmount = adjustedAmounts[project] || 0;
-  if (adjustedAmount > 0) {
-    y += 10;
-    doc.setTextColor(255, 0, 0);
-    doc.text('Adjusted Amount:', margin, y + 6);
-    doc.text(`-$${adjustedAmount.toFixed(2)}`, pageWidth - margin - 10, y + 6);
-
-    y += 10;
-    doc.setTextColor(39, 174, 96);
-    doc.text('Final Amount:', margin, y + 6);
-    doc.text(`$${(projectData.totalAmount - adjustedAmount).toFixed(2)}`, pageWidth - margin - 10, y + 6);
+        y += 10;
+        doc.setTextColor(39, 174, 96);
+        doc.text('Final Amount:', margin, y + 6);
+        doc.text(`$${(projectData.totalAmount - adjustedAmount).toFixed(2)}`, pageWidth - margin - 10, y + 6);
+    }
   }
   
   return y + 15;
 }
-
 
 interface GenerateInvoiceHeaderOptions {
   doc: jsPDF;
@@ -186,18 +211,19 @@ interface GenerateTeamSummaryOptions {
   doc: jsPDF;
   workerTotals: Record<string, { totalHours: number; adjustedHours: number }>;
   startY?: number;
+  showAmounts?: boolean;
 }
 
 export function generateTeamSummary({ 
   doc, 
   workerTotals, 
-  startY = 20 
-} : GenerateTeamSummaryOptions) {
+  startY = 20,
+  showAmounts = true
+}: GenerateTeamSummaryOptions) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
   const rowHeight = 8; // Fixed row height
   
-  // Add title
   doc.setFontSize(14);
   doc.setTextColor(33, 33, 33);
   doc.text('Team Members Summary', pageWidth / 2, startY - 30, { align: 'center' });
@@ -205,7 +231,6 @@ export function generateTeamSummary({
   let y = startY - 15; 
   const tableWidth = pageWidth - 2 * margin;
   
-  // Header
   doc.setFillColor(51, 101, 138);
   doc.rect(margin, y, tableWidth, rowHeight, 'F');
   doc.setTextColor(255, 255, 255);
@@ -253,7 +278,6 @@ export function generateTeamSummary({
   return y + 20; // Return position with padding for next section
 }
 
-
 interface GenerateProjectsSummaryOptions {
   doc: jsPDF;
   selectedProjects: string[];
@@ -261,6 +285,7 @@ interface GenerateProjectsSummaryOptions {
   adjustedAmounts: Record<string, number>;
   projectsSummary: { totalHours: number; totalAmount: number };
   startY?: number;
+  showAmounts?: boolean;
 }
 
 export function generateProjectsSummary({
@@ -269,7 +294,8 @@ export function generateProjectsSummary({
   projectTotals,
   adjustedAmounts,
   projectsSummary,
-  startY = 20
+  startY = 20,
+  showAmounts = true
 }: GenerateProjectsSummaryOptions) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
@@ -284,7 +310,7 @@ export function generateProjectsSummary({
   doc.text('Projects Summary', pageWidth / 2, startY + 5, { align: 'center' });
 
   let y = startY + 20; // Adjusted spacing after enhanced header
-  const tableWidth = (pageWidth - 2 * margin - 10) / 2; // Slightly adjusted for better spacing
+  const tableWidth = showAmounts ? (pageWidth - 2 * margin - 10) / 2 : (pageWidth - 2 * margin - 10); // Slightly adjusted for better spacing
   const colPadding = 8;
 
   // Enhanced table headers
@@ -298,16 +324,16 @@ export function generateProjectsSummary({
   doc.text('Project Name', margin + colPadding, y + 5);
   doc.text('Hours', margin + tableWidth - 35, y + 5);
 
-  // Amount Summary Table Header
-  doc.setFillColor(51, 101, 138);
-  doc.rect(margin + tableWidth + 10, y, tableWidth, headerHeight, 'F');
-  doc.text('Project Name', margin + tableWidth + 10 + colPadding, y + 5);
-  doc.text('Amount', pageWidth - margin - 35, y + 5);
+  if (showAmounts) {
+    doc.setFillColor(51, 101, 138);
+    doc.rect(margin + tableWidth + 10, y, tableWidth, headerHeight, 'F');
+    doc.text('Project Name', margin + tableWidth + 10 + colPadding, y + 5);
+    doc.text('Amount', pageWidth - margin - 35, y + 5);
+  }
 
   y += headerHeight;
   doc.setTextColor(33, 33, 33);
 
-  // Enhanced row styling
   selectedProjects.forEach((project, index) => {
     const projectData = projectTotals[project];
     const adjustedAmount = adjustedAmounts[project] || 0;
@@ -320,40 +346,48 @@ export function generateProjectsSummary({
       doc.setFillColor(255, 255, 255);
     }
     
-    // Draw row backgrounds
     doc.rect(margin, y, tableWidth, rowHeight, 'F');
-    doc.rect(margin + tableWidth + 10, y, tableWidth, rowHeight, 'F');
+    if (showAmounts) {
+      doc.rect(margin + tableWidth + 10, y, tableWidth, rowHeight, 'F');
+    }
 
-    // Add subtle row border
     doc.setDrawColor(230, 230, 230);
     doc.line(margin, y, margin + tableWidth, y);
-    doc.line(margin + tableWidth + 10, y, pageWidth - margin, y);
+    if (showAmounts) {
+      doc.line(margin + tableWidth + 10, y, pageWidth - margin, y);
+    }
 
-    // Add content
     doc.setFontSize(10);
     doc.text(project, margin + colPadding, y + 5);
     doc.text(projectData.totalHours.toFixed(2), margin + tableWidth - 35, y + 5);
-    doc.text(project, margin + tableWidth + 10 + colPadding, y + 5);
-    doc.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 35, y + 5);
+    
+    if (showAmounts) {
+      doc.text(project, margin + tableWidth + 10 + colPadding, y + 5);
+      doc.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 35, y + 5);
+    }
 
     y += rowHeight;
   });
 
-  // Enhanced total row
   const totalRowHeight = 8;
   doc.setFillColor(240, 240, 240);
   doc.rect(margin, y, tableWidth, totalRowHeight, 'F');
-  doc.rect(margin + tableWidth + 10, y, tableWidth, totalRowHeight, 'F');
+  if (showAmounts) {
+    doc.rect(margin + tableWidth + 10, y, tableWidth, totalRowHeight, 'F');
+  }
 
   doc.setFontSize(10);
   doc.text('Total Hours', margin + colPadding, y + 5);
-  doc.text('Total Payable', margin + tableWidth + 10 + colPadding, y + 5);
-  doc.setTextColor(39, 174, 96);
   doc.text(projectsSummary.totalHours.toFixed(2), margin + tableWidth - 35, y + 5);
 
-  doc.text(`$${projectsSummary.totalAmount.toFixed(2)}`, pageWidth - margin - 35, y + 5);
+  if (showAmounts) {
+    doc.setTextColor(0, 0, 0);
+    doc.text('Total Payable', margin + tableWidth + 10 + colPadding, y + 5);
+    doc.setTextColor(39, 174, 96);
+    doc.text(`$${projectsSummary.totalAmount.toFixed(2)}`, pageWidth - margin - 35, y + 5);
+  }
 
-  return y + totalRowHeight + 20; // Return position with padding for next section
+  return y + totalRowHeight + 20;
 }
 
 export function generateCombinedInvoice(doc: jsPDF, {
@@ -365,9 +399,11 @@ export function generateCombinedInvoice(doc: jsPDF, {
   adjustedAmounts,
   projectsSummary,
   workerTotals,
-  workerRates
+  workerRates,
+  showActivities = true,
+  showAmounts = true,
+  showTeamSummary = true
 }) {
-  // Generate header
   generateInvoiceHeader({
     doc,
     selectedMonth,
@@ -375,39 +411,42 @@ export function generateCombinedInvoice(doc: jsPDF, {
     payableTo
   });
 
-  // Add page for summaries
   doc.addPage();
 
-  // First generate Projects Summary
   let y = generateProjectsSummary({
     doc,
     selectedProjects,
     projectTotals,
     adjustedAmounts,
     projectsSummary,
-    startY: 20
+    startY: 20,
+    showAmounts
   });
 
-  // Add spacing between summaries
-  y += 30; // Increased spacing between sections
+  y += 30;
 
-  // Then generate Team Members Summary
-  generateTeamSummary({
-    doc,
-    workerTotals,
-    startY: y
-  });
-
-  // Generate individual project pages
-  selectedProjects.forEach(project => {
-    doc.addPage();
-    generateProjectPage({
+  if (showTeamSummary) {
+    generateTeamSummary({
       doc,
-      project,
-      projectData: projectTotals[project],
-      selectedMonth,
-      workerRates,
-      adjustedAmounts
+      workerTotals,
+      startY: y,
+      showAmounts
     });
-  });
+  }
+
+  if (showActivities) {
+    selectedProjects.forEach(project => {
+      doc.addPage();
+      generateProjectPage({
+        doc,
+        project,
+        projectData: projectTotals[project],
+        selectedMonth,
+        workerRates,
+        adjustedAmounts,
+        showActivities,
+        showAmounts
+      });
+    });
+  }
 }
