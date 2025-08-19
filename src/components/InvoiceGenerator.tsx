@@ -19,14 +19,14 @@ export function InvoiceGenerator() {
   const [showAmounts, setShowAmounts] = useState(true);
   const [showTeamSummary, setShowTeamSummary] = useState(true);
   const [clientInfo, setClientInfo] = useState<ClientInfo>({
-    name: '',
-    company: '',
-    location: ''
+    name: 'Mike Olaski',
+    company: 'Intogreat',
+    location: 'Slovakia'
   });
   const [payableTo, setPayableTo] = useState<PayableTo>({
-    name: '',
-    agency: '',
-    location: ''
+    name: 'Mirza Ovinoor',
+    agency: 'Lattice Code Pro',
+    location: 'Bangladesh'
   });
 
   const projectTotals = calculateTotalsByProject(csvData, workerRates);
