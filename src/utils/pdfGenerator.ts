@@ -113,7 +113,7 @@ export function generateProjectPage({
   y += 5;
   doc.setFontSize(10);
   doc.setTextColor(33, 33, 33);
-  doc.text('Project Total:', margin, y + 5);
+  doc.text('Subtotal:', margin, y + 5);
   
   // Correctly align the total hours under the "Hours" column
   if(showAmounts) {
@@ -133,18 +133,24 @@ export function generateProjectPage({
     if (adjustedAmount > 0) {
         y += 10;
         doc.setTextColor(255, 0, 0);
-        doc.text('Adjusted Amount:', margin, y + 6);
+        doc.text('Adjustment / Discount:', margin, y + 6);
         doc.text(`-$${adjustedAmount.toFixed(2)}`, pageWidth - margin - 10, y + 6);
 
+        doc.setFont("helvetica", "bold");
         y += 10;
-        doc.setTextColor(39, 174, 96);
-        doc.text('Final Amount:', margin, y + 6);
+        doc.setTextColor(33, 33, 33);
+        doc.text('Grand Total:', margin, y + 6);
         doc.text(`$${(projectData.totalAmount - adjustedAmount).toFixed(2)}`, pageWidth - margin - 10, y + 6);
+        doc.setFont("helvetica", "normal");
     }
   }
   
   return y + 15;
 }
+
+// Subtotal
+// Adjustment / Discount
+// Grand Total
 
 interface GenerateInvoiceHeaderOptions {
   doc: jsPDF;
